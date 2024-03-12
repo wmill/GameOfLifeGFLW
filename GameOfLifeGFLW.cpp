@@ -1,5 +1,7 @@
 #include <iostream>
+
 #include <GLFW/glfw3.h>
+
 #include <random>
 #include <thread>
 
@@ -9,6 +11,8 @@ const int SCREEN_WIDTH = 1500;
 const int SCREEN_HEIGHT = 1000;
 const int IMAGE_WIDTH = SCREEN_WIDTH;  // Change according to your image size
 const int IMAGE_HEIGHT = SCREEN_HEIGHT;  // Change according to your image size
+const int NUM_THREADS = 16;
+const int USE_GOOD_RANDOM = true;
 
 const uint32_t LIVE = 0xFF000000;
 const uint32_t DEAD = 0xFFFFFFFF;
@@ -17,9 +21,13 @@ void randomizeImage(uint32_t* imageData, std::mt19937& eng, std::uniform_int_dis
     for (int y = 0; y < IMAGE_HEIGHT; ++y) {
         for (int x = 0; x < IMAGE_WIDTH; ++x) {
             int pixelIndex = y * IMAGE_WIDTH + x;
-            // Example: Fill with random values 0 or 255
-            imageData[pixelIndex] = distr(eng) == 0 ? DEAD : LIVE;
-            //imageData[pixelIndex] = (rand() % 2) * 255;
+            // Example: Fill with random values LIVE or DEAD
+            if (USE_GOOD_RANDOM) {
+				imageData[pixelIndex] = distr(eng) == 0 ? DEAD : LIVE;
+			}
+            else {
+				imageData[pixelIndex] = (rand() % 2) == 0 ? DEAD : LIVE;
+			}
 
         }
     }
@@ -72,6 +80,10 @@ void updateImage(uint32_t* greenImageData, uint32_t* redImageData) {
 
 void generateNextGenerationPartial(uint32_t* greenImageData, uint32_t* redImageData, int start, int end) {
     // start and end are the indexes of the pixels that the current thread is responsible for
+    int maxIndex =  IMAGE_WIDTH * IMAGE_HEIGHT;
+    if (end > maxIndex) {
+		end = maxIndex;
+	}
     for (int i = start; i < end; i++) {
         int h = i / IMAGE_WIDTH;
         int w = i % IMAGE_WIDTH;
@@ -99,17 +111,16 @@ void generateNextGenerationPartial(uint32_t* greenImageData, uint32_t* redImageD
 
 // this function creates a pool of threads and assigns each thread a portion of the image to update
 void updateImageParallel(uint32_t* greenImageData, uint32_t* redImageData) {
-    const int numThreads = 16;
-    int pixelsPerThread = IMAGE_WIDTH * IMAGE_HEIGHT / numThreads;
+    int pixelsPerThread = IMAGE_WIDTH * IMAGE_HEIGHT / NUM_THREADS;
     int start = 0;
     int end = pixelsPerThread;
-    std::thread threads[numThreads];
-    for (int i = 0; i < numThreads; i++) {
+    std::thread threads[NUM_THREADS];
+    for (int i = 0; i < NUM_THREADS; i++) {
         threads[i] = std::thread(generateNextGenerationPartial, greenImageData, redImageData, start, end);
         start = end;
         end = start + pixelsPerThread;
     }
-    for (int i = 0; i < numThreads; i++) {
+    for (int i = 0; i < NUM_THREADS; i++) {
         threads[i].join();
     }
     return;
@@ -161,9 +172,8 @@ int main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     // Main loop
     while (!glfwWindowShouldClose(window)) {
-        // Randomize the image data
-        //randomizeImage(imageDataA, eng, distr);
 
+		// Update the image data
         updateImageParallel(imageDataA, imageDataB);
         std::swap(imageDataA, imageDataB);
 
