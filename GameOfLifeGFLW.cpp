@@ -1,9 +1,10 @@
 #include <iostream>
 
-#include <GLFW/glfw3.h>
+#include "GLFW/glfw3.h"
 
 #include <random>
 #include <thread>
+#include <string.h>
 
 
 
@@ -17,7 +18,13 @@ const int USE_GOOD_RANDOM = true;
 const uint32_t LIVE = 0xFF000000;
 const uint32_t DEAD = 0xFFFFFFFF;
 
-void randomizeImage(uint32_t* imageData, std::mt19937& eng, std::uniform_int_distribution<>& distr) {
+void randomizeImage(uint32_t* imageData) {
+    // Create random number generator
+    static std::random_device rd;  // Obtain a random seed from hardware
+    static std::mt19937 eng(rd()); // Standard mersenne_twister_engine seeded with rd()
+
+    // Define the distribution
+    static std::uniform_int_distribution<> distr(0, 1); // Range [0,1]
     for (int y = 0; y < IMAGE_HEIGHT; ++y) {
         for (int x = 0; x < IMAGE_WIDTH; ++x) {
             int pixelIndex = y * IMAGE_WIDTH + x;
@@ -128,12 +135,7 @@ void updateImageParallel(uint32_t* greenImageData, uint32_t* redImageData) {
 
 int main() {
 
-    // Create random number generator
-    std::random_device rd;  // Obtain a random seed from hardware
-    std::mt19937 eng(rd()); // Standard mersenne_twister_engine seeded with rd()
 
-    // Define the distribution
-    std::uniform_int_distribution<> distr(0, 1); // Range [0,1]
 
     // Initialize GLFW
     if (!glfwInit()) {
@@ -165,7 +167,7 @@ int main() {
     memset(imageDataA, LIVE, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(uint32_t));
     memset(imageDataB, DEAD, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(uint32_t));
 
-    randomizeImage(imageDataA, eng, distr);
+    randomizeImage(imageDataA);
 
     // Set texture parameters and upload image data here (use glTexImage2D)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, IMAGE_WIDTH, IMAGE_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageDataA);
