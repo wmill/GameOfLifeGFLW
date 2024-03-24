@@ -6,12 +6,6 @@ CXX := g++
 # Compiler flags
 CXXFLAGS := -std=c++11 -Wall -Wextra
 
-# Directory containing GLFW library
-GLFW_DIR := lib-arm64
-
-# GLFW library
-GLFW_LIB := $(GLFW_DIR)/libglfw3.a
-
 # Executable name
 EXEC := GameOfLifeGFLW
 
@@ -35,7 +29,7 @@ all: $(EXEC)
 # 	$(CXX) $(CXXFLAGS) $(OBJS) $(GLFW_LIB) -o $(EXEC)
 
 GameOfLifeGFLW: GameOfLifeGFLW.o
-	g++ -std=c++11 -Wall -Wextra GameOfLifeGFLW.o lib-arm64/libglfw3.a -o GameOfLifeGFLW -framework Cocoa -framework OpenGL -framework IOKit -framework CoreVideo
+	g++ -std=c++11 -Wall -Wextra GameOfLifeGFLW.o -o GameOfLifeGFLW -lglfw -lX11 -lXrandr -lXi -lXinerama -lXcursor -lrt -lm -ldl -lpthread -lGL -lGLU
 
 # Clean up
 clean:

@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "GLFW/glfw3.h"
+#include <GLFW/glfw3.h>
 
 #include <random>
 #include <thread>
@@ -30,10 +30,10 @@ void randomizeImage(uint32_t* imageData) {
             int pixelIndex = y * IMAGE_WIDTH + x;
             // Example: Fill with random values LIVE or DEAD
             if (USE_GOOD_RANDOM) {
-				imageData[pixelIndex] = distr(eng) == 0 ? DEAD : LIVE;
+				imageData[pixelIndex] = distr(eng) == uint32_t(0) ? DEAD : LIVE;
 			}
             else {
-				imageData[pixelIndex] = (rand() % 2) == 0 ? DEAD : LIVE;
+				imageData[pixelIndex] = (rand() % 2) == uint32_t(0) ? DEAD : LIVE;
 			}
 
         }
@@ -61,7 +61,7 @@ void updateImage(uint32_t* greenImageData, uint32_t* redImageData) {
     for (int h = 0; h < IMAGE_HEIGHT; h++) {
         for (int w = 0; w < IMAGE_WIDTH; w++) {
             int neighbors = countNeighbors(greenImageData, h, w);
-            int cell = getCell(greenImageData, h, w);
+            uint32_t cell = getCell(greenImageData, h, w);
             if (cell == LIVE) {
                 if (neighbors < 2 || neighbors > 3) {
                     redImageData[h * IMAGE_WIDTH + w] = DEAD;
@@ -95,7 +95,7 @@ void generateNextGenerationPartial(uint32_t* greenImageData, uint32_t* redImageD
         int h = i / IMAGE_WIDTH;
         int w = i % IMAGE_WIDTH;
         int neighbors = countNeighbors(greenImageData, h, w);
-        int cell = getCell(greenImageData, h, w);
+        uint32_t cell = getCell(greenImageData, h, w);
         if (cell == LIVE) {
             if (neighbors < 2 || neighbors > 3) {
                 redImageData[h * IMAGE_WIDTH + w] = DEAD;
