@@ -15,10 +15,12 @@ const int IMAGE_HEIGHT = SCREEN_HEIGHT;  // Change according to your image size
 const int NUM_THREADS = 16;
 const int USE_GOOD_RANDOM = true;
 
-const uint32_t LIVE = 0xFF000000;
-const uint32_t DEAD = 0xFFFFFFFF;
+typedef uint32_t Pixel;
 
-void randomizeImage(uint32_t* imageData) {
+const Pixel LIVE = 0xFF000000;
+const Pixel DEAD = 0xFFFFFFFF;
+
+void randomizeImage(Pixel* imageData) {
     // Create random number generator
     static std::random_device rd;  // Obtain a random seed from hardware
     static std::mt19937 eng(rd()); // Standard mersenne_twister_engine seeded with rd()
@@ -30,21 +32,21 @@ void randomizeImage(uint32_t* imageData) {
             int pixelIndex = y * IMAGE_WIDTH + x;
             // Example: Fill with random values LIVE or DEAD
             if (USE_GOOD_RANDOM) {
-				imageData[pixelIndex] = distr(eng) == uint32_t(0) ? DEAD : LIVE;
+				imageData[pixelIndex] = distr(eng) == Pixel(0) ? DEAD : LIVE;
 			}
             else {
-				imageData[pixelIndex] = (rand() % 2) == uint32_t(0) ? DEAD : LIVE;
+				imageData[pixelIndex] = (rand() % 2) == Pixel(0) ? DEAD : LIVE;
 			}
 
         }
     }
 }
 
-uint32_t getCell(uint32_t* imageData, int h, int w) {
+Pixel getCell(Pixel* imageData, int h, int w) {
     return imageData[(h + IMAGE_HEIGHT) % IMAGE_HEIGHT * IMAGE_WIDTH + (w + IMAGE_WIDTH) % IMAGE_WIDTH];
 }
 
-int countNeighbors(uint32_t* imageData, int h, int w) {
+int countNeighbors(Pixel* imageData, int h, int w) {
     int count = 0;
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {
@@ -57,11 +59,11 @@ int countNeighbors(uint32_t* imageData, int h, int w) {
     return count;
 }
 
-void updateImage(uint32_t* greenImageData, uint32_t* redImageData) {
+void updateImage(Pixel* greenImageData, Pixel* redImageData) {
     for (int h = 0; h < IMAGE_HEIGHT; h++) {
         for (int w = 0; w < IMAGE_WIDTH; w++) {
             int neighbors = countNeighbors(greenImageData, h, w);
-            uint32_t cell = getCell(greenImageData, h, w);
+            Pixel cell = getCell(greenImageData, h, w);
             if (cell == LIVE) {
                 if (neighbors < 2 || neighbors > 3) {
                     redImageData[h * IMAGE_WIDTH + w] = DEAD;
@@ -73,7 +75,6 @@ void updateImage(uint32_t* greenImageData, uint32_t* redImageData) {
             else {
                 if (neighbors == 3) {
                     redImageData[h * IMAGE_WIDTH + w] = LIVE;
-
                 }
                 else {
                     redImageData[h * IMAGE_WIDTH + w] = DEAD;
@@ -85,7 +86,7 @@ void updateImage(uint32_t* greenImageData, uint32_t* redImageData) {
 }
 
 
-void generateNextGenerationPartial(uint32_t* greenImageData, uint32_t* redImageData, int start, int end) {
+void generateNextGenerationPartial(Pixel* greenImageData, Pixel* redImageData, int start, int end) {
     // start and end are the indexes of the pixels that the current thread is responsible for
     int maxIndex =  IMAGE_WIDTH * IMAGE_HEIGHT;
     if (end > maxIndex) {
@@ -95,7 +96,7 @@ void generateNextGenerationPartial(uint32_t* greenImageData, uint32_t* redImageD
         int h = i / IMAGE_WIDTH;
         int w = i % IMAGE_WIDTH;
         int neighbors = countNeighbors(greenImageData, h, w);
-        uint32_t cell = getCell(greenImageData, h, w);
+        Pixel cell = getCell(greenImageData, h, w);
         if (cell == LIVE) {
             if (neighbors < 2 || neighbors > 3) {
                 redImageData[h * IMAGE_WIDTH + w] = DEAD;
@@ -117,7 +118,7 @@ void generateNextGenerationPartial(uint32_t* greenImageData, uint32_t* redImageD
 
 
 // this function creates a pool of threads and assigns each thread a portion of the image to update
-void updateImageParallel(uint32_t* greenImageData, uint32_t* redImageData) {
+void updateImageParallel(Pixel* greenImageData, Pixel* redImageData) {
     int pixelsPerThread = IMAGE_WIDTH * IMAGE_HEIGHT / NUM_THREADS;
     int start = 0;
     int end = pixelsPerThread;
@@ -161,11 +162,11 @@ int main() {
 
 
     // Dynamically allocate the image array as a continuous block of memory
-    uint32_t* imageDataA = new uint32_t[IMAGE_WIDTH * IMAGE_HEIGHT];
-    uint32_t* imageDataB = new uint32_t[IMAGE_WIDTH * IMAGE_HEIGHT];
+    Pixel* imageDataA = new Pixel[IMAGE_WIDTH * IMAGE_HEIGHT];
+    Pixel* imageDataB = new Pixel[IMAGE_WIDTH * IMAGE_HEIGHT];
     // fill the memory
-    memset(imageDataA, LIVE, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(uint32_t));
-    memset(imageDataB, DEAD, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(uint32_t));
+    memset(imageDataA, LIVE, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
+    memset(imageDataB, DEAD, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
 
     randomizeImage(imageDataA);
 
@@ -188,7 +189,7 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, textureID);
         glBegin(GL_QUADS);
         // Define vertices to render the texture onto, render the texture fullscreen
-
+        // Coordintaes are based on the screen size
         glTexCoord2f(0.0f, 0.0f);
         glVertex2f(-1.0f, -1.0f);
         glTexCoord2f(1.0f, 0.0f);
