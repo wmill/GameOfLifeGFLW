@@ -99,6 +99,15 @@ int main() {
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
 
+    // Set the texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Allocate texture memory (important: use GL_RGBA8 for internal format)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, IMAGE_WIDTH, IMAGE_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
     Pixel* imageDataA = new Pixel[IMAGE_WIDTH * IMAGE_HEIGHT];
     Pixel* imageDataB = new Pixel[IMAGE_WIDTH * IMAGE_HEIGHT];
     memset(imageDataA, LIVE, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
@@ -113,9 +122,6 @@ int main() {
 
     cudaGraphicsResource *cudaResource;
     checkCudaError(cudaGraphicsGLRegisterImage(&cudaResource, textureID, GL_TEXTURE_2D, cudaGraphicsMapFlagsWriteDiscard), "Failed to register GL texture with CUDA");
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, IMAGE_WIDTH, IMAGE_HEIGHT, 0, GL_RGBA8, GL_UNSIGNED_BYTE, imageDataA);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
     while (!glfwWindowShouldClose(window)) {
         dim3 threadsPerBlock(256);
