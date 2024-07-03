@@ -42,6 +42,24 @@ void randomizeImage(Pixel* imageData) {
     }
 }
 
+void fillHorizontalLines(Pixel* imageData) {
+    for (int y = 0; y < IMAGE_HEIGHT; ++y) {
+        for (int x = 0; x < IMAGE_WIDTH; ++x) {
+            int pixelIndex = y * IMAGE_WIDTH + x;
+            imageData[pixelIndex] = y % 3 == 0 ? LIVE : DEAD;
+        }
+    }
+}
+
+void fillVerticalLines(Pixel* imageData) {
+    for (int y = 0; y < IMAGE_HEIGHT; ++y) {
+        for (int x = 0; x < IMAGE_WIDTH; ++x) {
+            int pixelIndex = y * IMAGE_WIDTH + x;
+            imageData[pixelIndex] = x % 3 == 0 ? LIVE : DEAD;
+        }
+    }
+}
+
 Pixel getCell(Pixel* imageData, int h, int w) {
     return imageData[(h + IMAGE_HEIGHT) % IMAGE_HEIGHT * IMAGE_WIDTH + (w + IMAGE_WIDTH) % IMAGE_WIDTH];
 }
@@ -165,7 +183,10 @@ int main() {
     memset(imageDataA, LIVE, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
     memset(imageDataB, DEAD, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
 
-    randomizeImage(imageDataA);
+    // randomizeImage(imageDataA);
+
+    fillHorizontalLines(imageDataA);
+    fillVerticalLines(imageDataB);    
 
     // Set texture parameters and upload image data here (use glTexImage2D)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, IMAGE_WIDTH, IMAGE_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageDataA);
