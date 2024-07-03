@@ -3,16 +3,12 @@
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <random>
-#include <thread>
 #include <string.h>
-#include <stdio.h>
 
 const int SCREEN_WIDTH = 1500;
 const int SCREEN_HEIGHT = 1000;
 const int IMAGE_WIDTH = SCREEN_WIDTH;
 const int IMAGE_HEIGHT = SCREEN_HEIGHT;
-const int NUM_THREADS = 16;
-const int USE_GOOD_RANDOM = true;
 
 typedef uint32_t Pixel;
 
@@ -36,8 +32,6 @@ __device__ int countNeighbors(Pixel* imageData, int h, int w) {
 
 __global__ void updateImageKernel(Pixel* greenImageData, Pixel* redImageData) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    // printf("idx: %d\n", idx);
     if (idx >= IMAGE_WIDTH * IMAGE_HEIGHT) return;
 
     int h = idx / IMAGE_WIDTH;
@@ -58,9 +52,6 @@ __global__ void updateImageKernel(Pixel* greenImageData, Pixel* redImageData) {
             redImageData[h * IMAGE_WIDTH + w] = DEAD;
         }
     }
-    if (idx == 0)  {
-        printf("redImageData[0]: %08X\ngreenImageData[0]: %08X\n", redImageData[0], greenImageData[0]);
-    }
 }
 
 void randomizeImage(Pixel* imageData) {
@@ -71,24 +62,6 @@ void randomizeImage(Pixel* imageData) {
         for (int x = 0; x < IMAGE_WIDTH; ++x) {
             int pixelIndex = y * IMAGE_WIDTH + x;
             imageData[pixelIndex] = distr(eng) == 0 ? LIVE : DEAD;
-        }
-    }
-}
-
-void fillHorizontalLines(Pixel* imageData) {
-    for (int y = 0; y < IMAGE_HEIGHT; ++y) {
-        for (int x = 0; x < IMAGE_WIDTH; ++x) {
-            int pixelIndex = y * IMAGE_WIDTH + x;
-            imageData[pixelIndex] = y % 3 == 0 ? LIVE : DEAD;
-        }
-    }
-}
-
-void fillVerticalLines(Pixel* imageData) {
-    for (int y = 0; y < IMAGE_HEIGHT; ++y) {
-        for (int x = 0; x < IMAGE_WIDTH; ++x) {
-            int pixelIndex = y * IMAGE_WIDTH + x;
-            imageData[pixelIndex] = x % 3 == 0 ? LIVE : DEAD;
         }
     }
 }
@@ -131,37 +104,33 @@ int main() {
     memset(imageDataA, LIVE, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
     memset(imageDataB, DEAD, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
 
-    // randomizeImage(imageDataA);
-    fillHorizontalLines(imageDataA);
-    fillVerticalLines(imageDataB);    
+    randomizeImage(imageDataA);
 
     Pixel *d_imageDataA, *d_imageDataB;
-    cudaMalloc(&d_imageDataA, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
-    cudaMalloc(&d_imageDataB, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
-    cudaMemcpy(d_imageDataA, imageDataA, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_imageDataB, imageDataB, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel), cudaMemcpyHostToDevice);
+    checkCudaError(cudaMalloc(&d_imageDataA, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel)), "Failed to allocate device memory for d_imageDataA");
+    checkCudaError(cudaMalloc(&d_imageDataB, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel)), "Failed to allocate device memory for d_imageDataB");
+    checkCudaError(cudaMemcpy(d_imageDataA, imageDataA, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel), cudaMemcpyHostToDevice), "Failed to copy imageDataA to device memory");
 
     cudaGraphicsResource *cudaResource;
-    cudaGraphicsGLRegisterImage(&cudaResource, textureID, GL_TEXTURE_2D, cudaGraphicsMapFlagsWriteDiscard);
+    checkCudaError(cudaGraphicsGLRegisterImage(&cudaResource, textureID, GL_TEXTURE_2D, cudaGraphicsMapFlagsWriteDiscard), "Failed to register GL texture with CUDA");
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, IMAGE_WIDTH, IMAGE_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageDataA);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, IMAGE_WIDTH, IMAGE_HEIGHT, 0, GL_RGBA8, GL_UNSIGNED_BYTE, imageDataA);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
     while (!glfwWindowShouldClose(window)) {
         dim3 threadsPerBlock(256);
         dim3 blocksPerGrid((IMAGE_WIDTH * IMAGE_HEIGHT + threadsPerBlock.x - 1) / threadsPerBlock.x);
 
-        // Update the image data on the GPU
         updateImageKernel<<<blocksPerGrid, threadsPerBlock>>>(d_imageDataA, d_imageDataB);
-        cudaDeviceSynchronize();
+        checkCudaError(cudaDeviceSynchronize(), "CUDA kernel execution failed");
         std::swap(d_imageDataA, d_imageDataB);
 
         // Map the CUDA resource and copy data to OpenGL texture
-        cudaGraphicsMapResources(1, &cudaResource, 0);
+        checkCudaError(cudaGraphicsMapResources(1, &cudaResource, 0), "Failed to map CUDA graphics resource");
         cudaArray_t cudaArray;
-        cudaGraphicsSubResourceGetMappedArray(&cudaArray, cudaResource, 0, 0);
-        cudaMemcpyToArray(cudaArray, 0, 0, d_imageDataA, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel), cudaMemcpyDeviceToDevice);
-        cudaGraphicsUnmapResources(1, &cudaResource, 0);
+        checkCudaError(cudaGraphicsSubResourceGetMappedArray(&cudaArray, cudaResource, 0, 0), "Failed to get CUDA array from mapped resource");
+        checkCudaError(cudaMemcpyToArray(cudaArray, 0, 0, d_imageDataA, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel), cudaMemcpyDeviceToDevice), "Failed to copy data to CUDA array");
+        checkCudaError(cudaGraphicsUnmapResources(1, &cudaResource, 0), "Failed to unmap CUDA graphics resource");
 
         // Render the updated texture
         glClear(GL_COLOR_BUFFER_BIT);
@@ -178,15 +147,12 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        GLenum err;
-        while ((err = glGetError()) != GL_NO_ERROR) {
-            std::cerr << "OpenGL error: " << err << std::endl;
-        }
+        checkOpenGLError("Rendering loop");
     }
 
-    cudaGraphicsUnregisterResource(cudaResource);
-    cudaFree(d_imageDataA);
-    cudaFree(d_imageDataB);
+    checkCudaError(cudaGraphicsUnregisterResource(cudaResource), "Failed to unregister CUDA graphics resource");
+    checkCudaError(cudaFree(d_imageDataA), "Failed to free device memory for d_imageDataA");
+    checkCudaError(cudaFree(d_imageDataB), "Failed to free device memory for d_imageDataB");
     delete[] imageDataA;
     delete[] imageDataB;
 
