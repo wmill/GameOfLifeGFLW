@@ -1,5 +1,9 @@
 # Makefile for compiling GameOfLifeGFLW.cpp with GLFW library
 
+# TODO: also build cuda version with nvcc
+# current command is `nvcc -o GameOfLifeGFLW-cu GameOfLifeGFLW.cu -lglfw -lGL -lGLU`
+
+
 # Compiler
 CXX := g++
 

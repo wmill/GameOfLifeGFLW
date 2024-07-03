@@ -12,8 +12,9 @@ const int IMAGE_HEIGHT = SCREEN_HEIGHT;
 
 typedef uint32_t Pixel;
 
-const Pixel LIVE = 0xFF000000;
-const Pixel DEAD = 0xFFFFFFFF;
+const Pixel CELL_LIVE = 0xFF000000;
+const Pixel CELL_DEAD = 0xFFFFFFFF;
+const int CELL_FRACTION_ALIVE = 5; // 1 in CELL_FRACTION_ALIVE cells will be alive for random initialization
 
 const size_t BUFFER_SIZE = IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel);
 const int IMAGE_SIZE = IMAGE_WIDTH * IMAGE_HEIGHT;
@@ -27,7 +28,7 @@ __device__ int countNeighbors(Pixel* imageData, int h, int w) {
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {
             if (i == 0 && j == 0) continue;
-            count += getCell(imageData, h + i, w + j) == LIVE ? 1 : 0;
+            count += getCell(imageData, h + i, w + j) == CELL_LIVE ? 1 : 0;
         }
     }
     return count;
@@ -42,17 +43,17 @@ __global__ void updateImageKernel(Pixel* greenImageData, Pixel* redImageData) {
     int neighbors = countNeighbors(greenImageData, h, w);
     Pixel cell = getCell(greenImageData, h, w);
     
-    if (cell == LIVE) {
+    if (cell == CELL_LIVE) {
         if (neighbors < 2 || neighbors > 3) {
-            redImageData[h * IMAGE_WIDTH + w] = DEAD;
+            redImageData[h * IMAGE_WIDTH + w] = CELL_DEAD;
         } else {
-            redImageData[h * IMAGE_WIDTH + w] = LIVE;
+            redImageData[h * IMAGE_WIDTH + w] = CELL_LIVE;
         }
     } else {
         if (neighbors == 3) {
-            redImageData[h * IMAGE_WIDTH + w] = LIVE;
+            redImageData[h * IMAGE_WIDTH + w] = CELL_LIVE;
         } else {
-            redImageData[h * IMAGE_WIDTH + w] = DEAD;
+            redImageData[h * IMAGE_WIDTH + w] = CELL_DEAD;
         }
     }
 }
@@ -60,11 +61,11 @@ __global__ void updateImageKernel(Pixel* greenImageData, Pixel* redImageData) {
 void randomizeImage(Pixel* imageData) {
     static std::random_device rd;
     static std::mt19937 eng(rd());
-    static std::uniform_int_distribution<> distr(0, 4);
+    static std::uniform_int_distribution<> distr(0, CELL_FRACTION_ALIVE - 1);
     for (int y = 0; y < IMAGE_HEIGHT; ++y) {
         for (int x = 0; x < IMAGE_WIDTH; ++x) {
             int pixelIndex = y * IMAGE_WIDTH + x;
-            imageData[pixelIndex] = distr(eng) == 0 ? LIVE : DEAD;
+            imageData[pixelIndex] = distr(eng) == 0 ? CELL_LIVE : CELL_DEAD;
         }
     }
 }
@@ -104,6 +105,8 @@ int main() {
 
     // Set the texture parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    // the following three lines are technically not necessary. They affect non 1:1 pixel to texel mapping and offscreen textures.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -112,7 +115,7 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, IMAGE_WIDTH, IMAGE_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
     Pixel* imageData = new Pixel[IMAGE_SIZE];
-    memset(imageData, LIVE, BUFFER_SIZE);
+    memset(imageData, CELL_LIVE, BUFFER_SIZE);
 
     randomizeImage(imageData);
 
