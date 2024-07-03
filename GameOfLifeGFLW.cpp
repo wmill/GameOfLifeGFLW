@@ -135,9 +135,6 @@ void updateImageParallel(Pixel* greenImageData, Pixel* redImageData) {
 }
 
 int main() {
-
-
-
     // Initialize GLFW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW\n";
