@@ -26,16 +26,16 @@ void randomizeImage(Pixel* imageData) {
     static std::mt19937 eng(rd()); // Standard mersenne_twister_engine seeded with rd()
 
     // Define the distribution
-    static std::uniform_int_distribution<> distr(0, 1); // Range [0,1]
+    static std::uniform_int_distribution<> distr(0, 4); // Range [0,1]
     for (int y = 0; y < IMAGE_HEIGHT; ++y) {
         for (int x = 0; x < IMAGE_WIDTH; ++x) {
             int pixelIndex = y * IMAGE_WIDTH + x;
             // Example: Fill with random values LIVE or DEAD
             if (USE_GOOD_RANDOM) {
-				imageData[pixelIndex] = distr(eng) == Pixel(0) ? DEAD : LIVE;
+				imageData[pixelIndex] = distr(eng) == Pixel(0) ? LIVE : DEAD;
 			}
             else {
-				imageData[pixelIndex] = (rand() % 2) == Pixel(0) ? DEAD : LIVE;
+				imageData[pixelIndex] = (rand() % 2) == Pixel(0) ? LIVE : DEAD;
 			}
 
         }
