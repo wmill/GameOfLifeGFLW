@@ -5,7 +5,7 @@
 #include <random>
 #include <string.h>
 
-const int SCREEN_WIDTH = 1500;
+const int SCREEN_WIDTH = 2000;
 const int SCREEN_HEIGHT = 1000;
 const int IMAGE_WIDTH = SCREEN_WIDTH;
 const int IMAGE_HEIGHT = SCREEN_HEIGHT;
@@ -14,6 +14,9 @@ typedef uint32_t Pixel;
 
 const Pixel LIVE = 0xFF000000;
 const Pixel DEAD = 0xFFFFFFFF;
+
+const size_t BUFFER_SIZE = IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel);
+const int IMAGE_SIZE = IMAGE_WIDTH * IMAGE_HEIGHT;
 
 __device__ Pixel getCell(Pixel* imageData, int h, int w) {
     return imageData[(h + IMAGE_HEIGHT) % IMAGE_HEIGHT * IMAGE_WIDTH + (w + IMAGE_WIDTH) % IMAGE_WIDTH];
@@ -32,7 +35,7 @@ __device__ int countNeighbors(Pixel* imageData, int h, int w) {
 
 __global__ void updateImageKernel(Pixel* greenImageData, Pixel* redImageData) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= IMAGE_WIDTH * IMAGE_HEIGHT) return;
+    if (idx >= IMAGE_SIZE) return;
 
     int h = idx / IMAGE_WIDTH;
     int w = idx % IMAGE_WIDTH;
@@ -57,7 +60,7 @@ __global__ void updateImageKernel(Pixel* greenImageData, Pixel* redImageData) {
 void randomizeImage(Pixel* imageData) {
     static std::random_device rd;
     static std::mt19937 eng(rd());
-    static std::uniform_int_distribution<> distr(0, 1);
+    static std::uniform_int_distribution<> distr(0, 4);
     for (int y = 0; y < IMAGE_HEIGHT; ++y) {
         for (int x = 0; x < IMAGE_WIDTH; ++x) {
             int pixelIndex = y * IMAGE_WIDTH + x;
@@ -108,24 +111,22 @@ int main() {
     // Allocate texture memory (important: use GL_RGBA8 for internal format)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, IMAGE_WIDTH, IMAGE_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
-    Pixel* imageDataA = new Pixel[IMAGE_WIDTH * IMAGE_HEIGHT];
-    Pixel* imageDataB = new Pixel[IMAGE_WIDTH * IMAGE_HEIGHT];
-    memset(imageDataA, LIVE, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
-    memset(imageDataB, DEAD, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel));
+    Pixel* imageData = new Pixel[IMAGE_SIZE];
+    memset(imageData, LIVE, BUFFER_SIZE);
 
-    randomizeImage(imageDataA);
+    randomizeImage(imageData);
 
     Pixel *d_imageDataA, *d_imageDataB;
-    checkCudaError(cudaMalloc(&d_imageDataA, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel)), "Failed to allocate device memory for d_imageDataA");
-    checkCudaError(cudaMalloc(&d_imageDataB, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel)), "Failed to allocate device memory for d_imageDataB");
-    checkCudaError(cudaMemcpy(d_imageDataA, imageDataA, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel), cudaMemcpyHostToDevice), "Failed to copy imageDataA to device memory");
+    checkCudaError(cudaMalloc(&d_imageDataA, BUFFER_SIZE), "Failed to allocate device memory for d_imageDataA");
+    checkCudaError(cudaMalloc(&d_imageDataB, BUFFER_SIZE), "Failed to allocate device memory for d_imageDataB");
+    checkCudaError(cudaMemcpy(d_imageDataA, imageData, BUFFER_SIZE, cudaMemcpyHostToDevice), "Failed to copy imageData to device memory");
 
     cudaGraphicsResource *cudaResource;
     checkCudaError(cudaGraphicsGLRegisterImage(&cudaResource, textureID, GL_TEXTURE_2D, cudaGraphicsMapFlagsWriteDiscard), "Failed to register GL texture with CUDA");
 
     while (!glfwWindowShouldClose(window)) {
         dim3 threadsPerBlock(256);
-        dim3 blocksPerGrid((IMAGE_WIDTH * IMAGE_HEIGHT + threadsPerBlock.x - 1) / threadsPerBlock.x);
+        dim3 blocksPerGrid((IMAGE_SIZE + threadsPerBlock.x - 1) / threadsPerBlock.x);
 
         updateImageKernel<<<blocksPerGrid, threadsPerBlock>>>(d_imageDataA, d_imageDataB);
         checkCudaError(cudaDeviceSynchronize(), "CUDA kernel execution failed");
@@ -135,7 +136,7 @@ int main() {
         checkCudaError(cudaGraphicsMapResources(1, &cudaResource, 0), "Failed to map CUDA graphics resource");
         cudaArray_t cudaArray;
         checkCudaError(cudaGraphicsSubResourceGetMappedArray(&cudaArray, cudaResource, 0, 0), "Failed to get CUDA array from mapped resource");
-        checkCudaError(cudaMemcpyToArray(cudaArray, 0, 0, d_imageDataA, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel), cudaMemcpyDeviceToDevice), "Failed to copy data to CUDA array");
+        checkCudaError(cudaMemcpyToArray(cudaArray, 0, 0, d_imageDataA, BUFFER_SIZE, cudaMemcpyDeviceToDevice), "Failed to copy data to CUDA array");
         checkCudaError(cudaGraphicsUnmapResources(1, &cudaResource, 0), "Failed to unmap CUDA graphics resource");
 
         // Render the updated texture
@@ -159,8 +160,7 @@ int main() {
     checkCudaError(cudaGraphicsUnregisterResource(cudaResource), "Failed to unregister CUDA graphics resource");
     checkCudaError(cudaFree(d_imageDataA), "Failed to free device memory for d_imageDataA");
     checkCudaError(cudaFree(d_imageDataB), "Failed to free device memory for d_imageDataB");
-    delete[] imageDataA;
-    delete[] imageDataB;
+    delete[] imageData;
 
     glfwDestroyWindow(window);
     glfwTerminate();
