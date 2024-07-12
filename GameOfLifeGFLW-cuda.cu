@@ -7,14 +7,16 @@
 
 const int SCREEN_WIDTH = 2000;
 const int SCREEN_HEIGHT = 1000;
-const int IMAGE_WIDTH = SCREEN_WIDTH;
-const int IMAGE_HEIGHT = SCREEN_HEIGHT;
+const double PIXEL_RATIO = 0.1;
+const int IMAGE_WIDTH = SCREEN_WIDTH / PIXEL_RATIO;
+const int IMAGE_HEIGHT = SCREEN_HEIGHT / PIXEL_RATIO;
+
 
 typedef uint32_t Pixel;
 
 const Pixel CELL_LIVE = 0xFF000000;
 const Pixel CELL_DEAD = 0xFFFFFFFF;
-const int CELL_FRACTION_ALIVE = 5; // 1 in CELL_FRACTION_ALIVE cells will be alive for random initialization
+const int CELL_FRACTION_ALIVE = 10; // 1 in CELL_FRACTION_ALIVE cells will be alive for random initialization
 
 const size_t BUFFER_SIZE = IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Pixel);
 const int IMAGE_SIZE = IMAGE_WIDTH * IMAGE_HEIGHT;
