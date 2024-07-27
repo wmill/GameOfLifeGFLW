@@ -1,42 +1,48 @@
-# Makefile for compiling GameOfLifeGFLW.cpp with GLFW library
+# Makefile for compiling GameOfLifeGFLW.cpp with GLFW library and GameOfLifeGFLW.cu with nvcc
 
-# TODO: also build cuda version with nvcc
-# current command is `nvcc -o GameOfLifeGFLW-cu GameOfLifeGFLW.cu -lglfw -lGL -lGLU`
-
-
-# Compiler
+# Compiler for C++
 CXX := g++
 
-# Compiler flags
+# Compiler for CUDA
+NVCC := nvcc
+
+# Compiler flags for C++
 CXXFLAGS := -std=c++11 -Wall -Wextra
 
-# Executable name
-EXEC := GameOfLifeGFLW
+# Compiler flags for CUDA
+NVCCFLAGS := 
 
-# Source file
-SRCS := GameOfLifeGFLW.cpp
+# Executable names
+EXEC_CPP := GameOfLifeGFLW
+EXEC_CU := GameOfLifeGFLW-cuda
+
+# Source files
+SRCS_CPP := GameOfLifeGFLW.cpp
+SRCS_CU := GameOfLifeGFLW-cuda.cu
 
 # Object files
-OBJS := $(SRCS:.cpp=.o)
+OBJS_CPP := $(SRCS_CPP:.cpp=.o)
+OBJS_CU := $(SRCS_CU:.cu=.o)
 
 # Default target
-all: $(EXEC)
+all: $(EXEC_CPP) $(EXEC_CU)
 
-# Compile source files into object files
+# Compile C++ source files into object files
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Compile CUDA source files into object files
+%.o: %.cu
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
+# Link C++ object files and GLFW library into executable
+$(EXEC_CPP): $(OBJS_CPP)
+	$(CXX) $(CXXFLAGS) $(OBJS_CPP) -o $(EXEC_CPP) -lglfw -lX11 -lXrandr -lXi -lXinerama -lXcursor -lrt -lm -ldl -lpthread -lGL -lGLU
 
-# Link object files and GLFW library into executable
-# $(EXEC): $(OBJS)
-# 	$(CXX) $(CXXFLAGS) $(OBJS) $(GLFW_LIB) -o $(EXEC)
-
-GameOfLifeGFLW: GameOfLifeGFLW.o
-	g++ -std=c++11 -Wall -Wextra GameOfLifeGFLW.o -o GameOfLifeGFLW -lglfw -lX11 -lXrandr -lXi -lXinerama -lXcursor -lrt -lm -ldl -lpthread -lGL -lGLU
+# Link CUDA object files and GLFW library into executable
+$(EXEC_CU): $(OBJS_CU)
+	$(NVCC) $(NVCCFLAGS) $(OBJS_CU) -o $(EXEC_CU) -lglfw -lGL -lGLU
 
 # Clean up
 clean:
-	rm -f $(OBJS) $(EXEC)
-
-
+	rm -f $(OBJS_CPP) $(OBJS_CU) $(EXEC_CPP) $(EXEC_CU)

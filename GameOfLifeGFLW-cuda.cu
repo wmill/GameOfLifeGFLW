@@ -4,6 +4,7 @@
 #include <cuda_gl_interop.h>
 #include <random>
 #include <string.h>
+#include <stdio.h>
 
 const int SCREEN_WIDTH = 2000;
 const int SCREEN_HEIGHT = 1000;
@@ -100,7 +101,9 @@ int main() {
     }
 
     glfwMakeContextCurrent(window);
-
+    
+    printf("OpenGL version supported by this platform (%s): \n", glGetString(GL_VERSION));
+    printf("Binding OpenGL context to CUDA device\n");
     GLuint textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
@@ -113,21 +116,28 @@ int main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+    printf("Allocating texture memory\n");
     // Allocate texture memory (important: use GL_RGBA8 for internal format)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, IMAGE_WIDTH, IMAGE_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
     Pixel* imageData = new Pixel[IMAGE_SIZE];
+    printf("Initializing image data\n");
     memset(imageData, CELL_LIVE, BUFFER_SIZE);
-
+    printf("Randomizing image data\n");
     randomizeImage(imageData);
 
+    printf("Allocating device memory for image data\n");
     Pixel *d_imageDataA, *d_imageDataB;
     checkCudaError(cudaMalloc(&d_imageDataA, BUFFER_SIZE), "Failed to allocate device memory for d_imageDataA");
     checkCudaError(cudaMalloc(&d_imageDataB, BUFFER_SIZE), "Failed to allocate device memory for d_imageDataB");
     checkCudaError(cudaMemcpy(d_imageDataA, imageData, BUFFER_SIZE, cudaMemcpyHostToDevice), "Failed to copy imageData to device memory");
 
+    printf(("Registering GL texture with CUDA\n"));
+
     cudaGraphicsResource *cudaResource;
     checkCudaError(cudaGraphicsGLRegisterImage(&cudaResource, textureID, GL_TEXTURE_2D, cudaGraphicsMapFlagsWriteDiscard), "Failed to register GL texture with CUDA");
+
+    printf("Starting rendering loop\n");
 
     while (!glfwWindowShouldClose(window)) {
         dim3 threadsPerBlock(256);
